@@ -97,5 +97,10 @@
             Windows: http://www.py2exe.org/
 
 
+  - If you're using armoryd
+  - txjsonrpc
+            All OS: install from source at
+                    https://github.com/oubiwann/txjsonrpc
+
 
 
