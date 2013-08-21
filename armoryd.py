@@ -142,34 +142,7 @@ class Armory_Daemon(object):
    def init(self):
       LOGINFO('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         TheBDM.registerWallet(self.wallet)
-         TheBDM.setBlocking(False)
-         TheBDM.setOnlineMode(True)
-
-         LOGINFO('Blockchain loading')
-         while not TheBDM.getBDMState()=='BlockchainReady':
-            time.sleep(2)
-
-         self.latestBlockNum = TheBDM.getTopBlockHeight()
-         print('Blockchain loading finished.  Top block is %d', TheBDM.getTopBlockHeight())
-
-         mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-         self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.enableZeroConf(mempoolfile)
-         print('Syncing wallet: %s' % self.wallet.uniqueIDB58)
-         self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         self.wallet.syncWithBlockchain()
-         print('Blockchain load and wallet sync finished')
-         print('Wallet balance: %s' % coin2str(self.wallet.getBalance('Spendable')))
-
-         # This is CONNECT call for armoryd to talk to bitcoind
-         print('Set up connection to bitcoind')
-         self.NetworkingFactory = ArmoryClientFactory( \
-                        func_loseConnect = self.showOfflineMsg, \
-                        func_madeConnect = self.showOnlineMsg, \
-                        func_newTx       = self.execOnNewTx, \
-                        func_newBlock    = self.execOnNewBlock)
-         reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+         self.startBDM()
 
       self.runForever()
 
@@ -184,6 +157,36 @@ class Armory_Daemon(object):
       reactor.listenTCP(RPC_PORT, \
                         server.Site(secured_resource), \
                         interface="127.0.0.1")
+
+   def startBDM(self):
+      TheBDM.registerWallet(self.wallet)
+      TheBDM.setBlocking(False)
+      TheBDM.setOnlineMode(True)
+
+      LOGINFO('Blockchain loading')
+      while not TheBDM.getBDMState()=='BlockchainReady':
+         time.sleep(2)
+
+      self.latestBlockNum = TheBDM.getTopBlockHeight()
+      print('Blockchain loading finished.  Top block is %d', TheBDM.getTopBlockHeight())
+
+      mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+      self.checkMemoryPoolCorruption(mempoolfile)
+      TheBDM.enableZeroConf(mempoolfile)
+      print('Syncing wallet: %s' % self.wallet.uniqueIDB58)
+      self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+      self.wallet.syncWithBlockchain()
+      print('Blockchain load and wallet sync finished')
+      print('Wallet balance: %s' % coin2str(self.wallet.getBalance('Spendable')))
+
+      # This is CONNECT call for armoryd to talk to bitcoind
+      print('Set up connection to bitcoind')
+      self.NetworkingFactory = ArmoryClientFactory( \
+                     func_loseConnect = self.showOfflineMsg, \
+                     func_madeConnect = self.showOnlineMsg, \
+                     func_newTx       = self.execOnNewTx, \
+                     func_newBlock    = self.execOnNewBlock)
+      reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
 
    #############################################################################
