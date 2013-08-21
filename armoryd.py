@@ -110,40 +110,22 @@ class Armory_Daemon(object):
       self.newTxFunctions = []
       self.newBlockFunctions = []
       self.heartbeatFunctions = []
+      self.readWallet()
 
-      # The only argument that armoryd.py takes is the wallet to serve
-      if len(CLI_ARGS)==0:
-         LOGERROR('Please supply the wallet for this server to serve')
-         LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
-         os._exit(1)
-      wltpath = CLI_ARGS[0]
-      if not os.path.exists(wltpath):
-         LOGERROR('Wallet does not exist!  (%s)', wltpath)
-         return
 
-      self.wallet = PyBtcWallet().readWalletFile(wltpath)
+   #############################################################################
+   def start(self):
+      LOGINFO("Starting RPC server on port %d", RPC_PORT)
 
-      LOGINFO("Initialising RPC server on port %d", RPC_PORT)
-      self.startRpcServer()
-
-      # Setup the heartbeat function to run every 
+      # Setup the heartbeat function to run every
       reactor.callLater(3, self.Heartbeat)
 
-
-   #############################################################################
-   def set_auth(self, resource):
-      passwordfile = ARMORYD_CONF_FILE
-      checker = FilePasswordDB(passwordfile)
-      realmName = "Armory JSON-RPC App"
-      wrapper = wrapResource(resource, [checker], realmName=realmName)
-      return wrapper
-
-   #############################################################################
-   def init(self):
-      LOGINFO('Server started...')
+      # Read the blockchain
       if(not TheBDM.getBDMState()=='Offline'):
          self.startBDM()
 
+      # Start the server
+      self.startRpcServer()
       self.runForever()
 
    def runForever(self):
@@ -152,12 +134,11 @@ class Armory_Daemon(object):
    def startRpcServer(self):
       resource = armoryjsonrpc.Armory_Json_Rpc_Server(self.wallet)
       secured_resource = self.set_auth(resource)
-
-      # This is LISTEN call for armory RPC server
       reactor.listenTCP(RPC_PORT, \
                         server.Site(secured_resource), \
                         interface="127.0.0.1")
 
+   #############################################################################
    def startBDM(self):
       TheBDM.registerWallet(self.wallet)
       TheBDM.setBlocking(False)
@@ -188,6 +169,27 @@ class Armory_Daemon(object):
                      func_newBlock    = self.execOnNewBlock)
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
+
+   #############################################################################
+   def readWallet(self):
+      # The only argument that armoryd.py takes is the wallet to serve
+      if len(CLI_ARGS)==0:
+         LOGERROR('Please supply the wallet for this server to serve')
+         LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
+         os._exit(1)
+      wltpath = CLI_ARGS[0]
+      if not os.path.exists(wltpath):
+         LOGERROR('Wallet does not exist!  (%s)', wltpath)
+         return
+      self.wallet = PyBtcWallet().readWalletFile(wltpath)
+
+   #############################################################################
+   def set_auth(self, resource):
+      passwordfile = ARMORYD_CONF_FILE
+      checker = FilePasswordDB(passwordfile)
+      realmName = "Armory JSON-RPC App"
+      wrapper = wrapResource(resource, [checker], realmName=realmName)
+      return wrapper
 
    #############################################################################
    def checkForAlreadyRunning(self):
@@ -360,4 +362,4 @@ newaddress = access.getnewaddress()
 if True:
 
    rpc_server = Armory_Daemon()
-   rpc_server.init()
+   rpc_server.start()
