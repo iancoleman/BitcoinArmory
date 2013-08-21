@@ -128,15 +128,20 @@ class Armory_Daemon(object):
       self.startRpcServer()
       self.runForever()
 
+
+   #############################################################################
    def runForever(self):
       reactor.run()
 
+
+   #############################################################################
    def startRpcServer(self):
       resource = armoryjsonrpc.Armory_Json_Rpc_Server(self.wallet)
       secured_resource = self.set_auth(resource)
       reactor.listenTCP(RPC_PORT, \
                         server.Site(secured_resource), \
                         interface="127.0.0.1")
+
 
    #############################################################################
    def startBDM(self):
