@@ -61,9 +61,10 @@ import armoryjsonrpc
 
 import decimal
 import os
+import signal
+import socket
 import sys
 import time
-import socket
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 import json
@@ -125,22 +126,35 @@ class Armory_Daemon(object):
          self.startBDM()
 
       # Start the server
-      self.startRpcServer()
-      self.runForever()
-
-
-   #############################################################################
-   def runForever(self):
+      self.loadRpcServer()
+      signal.signal(signal.SIGINT, self.interrupt)
       reactor.run()
 
 
    #############################################################################
-   def startRpcServer(self):
-      resource = armoryjsonrpc.Armory_Json_Rpc_Server(self.wallet)
-      secured_resource = self.set_auth(resource)
-      reactor.listenTCP(RPC_PORT, \
-                        server.Site(secured_resource), \
+   def loadRpcServer(self):
+      self.rpcListener = reactor.listenTCP(RPC_PORT, \
+                        server.Site(self.newRpcServer()), \
                         interface="127.0.0.1")
+
+   #############################################################################
+   def interrupt(self, signum=None, stackframe=None):
+      print "Do you want to exit?"
+      print "y - exit"
+      print "n - continue"
+      print "r - reload armoryjsonrpc"
+      msg = raw_input("Do you want to exit? [Y/n/r]").lower()
+      if (msg == "" or msg == "y"):
+         os._exit(1)
+      elif (msg == "r"):
+         self.restart()
+
+   #############################################################################
+   def restart(self):
+      # Allow modifications to rpc to be reloaded - mainly a dev feature
+      print "Reloading armoryjsonrpc.py"
+      reload(armoryjsonrpc)
+      self.rpcListener.factory = server.Site(self.newRpcServer())
 
 
    #############################################################################
@@ -187,6 +201,12 @@ class Armory_Daemon(object):
          LOGERROR('Wallet does not exist!  (%s)', wltpath)
          return
       self.wallet = PyBtcWallet().readWalletFile(wltpath)
+
+   #############################################################################
+   def newRpcServer(self):
+      resource = armoryjsonrpc.Armory_Json_Rpc_Server(self.wallet)
+      return self.set_auth(resource)
+
 
    #############################################################################
    def set_auth(self, resource):
